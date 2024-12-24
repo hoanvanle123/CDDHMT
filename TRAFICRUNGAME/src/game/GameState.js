@@ -1,4 +1,4 @@
-import { gameSettings } from '../config.js';
+import { gameSettings, trackDimensions, arcAngles, cameraGlobalSettings } from '../config.js';
 import { getVehicleSpeed } from '../utils.js';
 import { Car } from '../models/Car.js';
 import { Truck } from '../models/Truck.js';
@@ -38,11 +38,8 @@ class GameState {
     }
 
     positionScoreElement() {
-        const arcCenterXinPixels = (arcAngles.centerX / cameraWidth) * window.innerWidth;
-        this.scoreElement.style.cssText = `
-            left: ${window.innerWidth / 2 - arcCenterXinPixels * 1.3}px;
-            top: ${window.innerHeight / 2}px
-        `;
+        const arcCenterXinPixels = (arcAngles.centerX / cameraGlobalSettings.cameraWidth) * window.innerWidth;
+        this.scoreElement.style.cssText = `left: ${window.innerWidth / 2 - arcCenterXinPixels * 1.3}px; top: ${window.innerHeight / 2}px;`;
     }
 }
 
@@ -68,6 +65,7 @@ export function updateGameState(gameState, scene, timeDelta) {
     
     if (hitDetection(gameState, scene)) {
         gameState.resultsElement.style.display = "flex";
+        gameState.resultsElement.innerText = "Game Over!";
         return false;
     }
     

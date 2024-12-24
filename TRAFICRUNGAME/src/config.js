@@ -38,3 +38,8 @@ export const gameSettings = {
     speed: 0.0017,
     playerAngleInitial: Math.PI
 };
+
+export const cameraGlobalSettings = {
+    cameraWidth: 960,
+    cameraHeight: 960 / (window.innerWidth / window.innerHeight)
+};

@@ -1,21 +1,20 @@
 import * as THREE from 'three';
-import { config, gameSettings, trackDimensions,arcAngles } from './config.js';
+import { config, gameSettings, trackDimensions, arcAngles, cameraGlobalSettings} from './config.js';
 import { Car } from './models/Car.js';
 import { Truck } from './models/Truck.js';
 import { setupTrack } from './scene/Track.js';
 import { initializeGameState, updateGameState } from './game/GameState.js';
 import { setupControls } from './game/Controls.js';
 
-
 let camera, scene, renderer;
 let playerCar;
-const gameState = initializeGameState();
+const gameState = initializeGameState(); 
 
 function initialize() {
     // Set up camera
     const aspectRatio = window.innerWidth / window.innerHeight;
-    const cameraWidth = 960;
-    const cameraHeight = cameraWidth / aspectRatio;
+    const cameraWidth = cameraGlobalSettings.cameraWidth;  
+    const cameraHeight = cameraGlobalSettings.cameraHeight;  
 
     camera = new THREE.OrthographicCamera(
         cameraWidth / -2,
@@ -38,35 +37,23 @@ function initialize() {
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
     dirLight.position.set(100, -300, 300);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 1024;
-    dirLight.shadow.mapSize.height = 1024;
-    dirLight.shadow.camera.left = -400;
-    dirLight.shadow.camera.right = 350;
-    dirLight.shadow.camera.top = 400;
-    dirLight.shadow.camera.bottom = -300;
-    dirLight.shadow.camera.near = 100;
-    dirLight.shadow.camera.far = 800;
     scene.add(dirLight);
 
     // Set up renderer
-    renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        powerPreference: "high-performance"
-    });
+    renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    if (config.shadows) renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
     // Initialize game elements
     playerCar = Car();
     scene.add(playerCar);
 
-    setupTrack(scene, cameraWidth, cameraHeight * 2);
+    setupTrack(scene, cameraWidth, cameraHeight * 2);  // Truyền cameraWidth và cameraHeight
     setupControls(gameState, startGame, reset);
-    
+
     // Handle window resizing
     window.addEventListener("resize", onWindowResize);
-    
+
     reset();
 }
 
@@ -121,9 +108,10 @@ function movePlayerCar(timeDelta) {
     playerCar.position.y = playerY;
     playerCar.rotation.z = totalPlayerAngle - Math.PI / 2;
 }
+
 function onWindowResize() {
     const newAspectRatio = window.innerWidth / window.innerHeight;
-    const adjustedCameraHeight = cameraWidth / newAspectRatio;
+    const adjustedCameraHeight = cameraGlobalSettings.cameraWidth / newAspectRatio;
 
     camera.top = adjustedCameraHeight / 2;
     camera.bottom = adjustedCameraHeight / -2;

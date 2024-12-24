@@ -10,14 +10,14 @@ export function Truck() {
     const color = pickRandom(colors.vehicle);
 
     const base = new THREE.Mesh(
-        new THREE.BoxBufferGeometry(100, 25, 5),
+        new THREE.BoxGeometry(100, 25, 5),
         new THREE.MeshLambertMaterial({ color: 0xb4c6fc })
     );
     base.position.z = 10;
     truck.add(base);
 
     const cargo = new THREE.Mesh(
-        new THREE.BoxBufferGeometry(75, 35, 40),
+        new THREE.BoxGeometry(75, 35, 40),
         new THREE.MeshLambertMaterial({ color: 0xffffff })
     );
     cargo.position.x = -15;
@@ -36,7 +36,7 @@ export function Truck() {
     const truckRightTexture = getTruckSideTexture();
 
     const cabin = new THREE.Mesh(
-        new THREE.BoxBufferGeometry(25, 30, 30),
+        new THREE.BoxGeometry(25, 30, 30),
         [
             new THREE.MeshLambertMaterial({ color, map: truckFrontTexture }),
             new THREE.MeshLambertMaterial({ color }),

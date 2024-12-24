@@ -1,4 +1,4 @@
-import { config } from '../config.js';
+import { config,gameSettings } from '../config.js';
 import { getDistance, getHitZonePosition } from '../utils.js';
 
 export function hitDetection(gameState, playerCar) {
