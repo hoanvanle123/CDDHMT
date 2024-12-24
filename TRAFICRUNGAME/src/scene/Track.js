@@ -6,7 +6,7 @@ import { getLeftIsland, getMiddleIsland, getRightIsland, getOuterField } from '.
 
 export function setupTrack(scene, mapWidth, mapHeight) {
     const lineMarkingsTexture = getLineMarkings(mapWidth, mapHeight);
-    const planeGeometry = new THREE.PlaneBufferGeometry(mapWidth, mapHeight);
+    const planeGeometry = new THREE.PlaneGeometry(mapWidth, mapHeight);
     const planeMaterial = new THREE.MeshLambertMaterial({
         map: lineMarkingsTexture
     });
@@ -25,7 +25,7 @@ export function setupTrack(scene, mapWidth, mapHeight) {
     curbsTexture.offset = new THREE.Vector2(0.5, 0.5);
     curbsTexture.repeat.set(1 / mapWidth, 1 / mapHeight);
 
-    const fieldGeometry = new THREE.ExtrudeBufferGeometry(
+    const fieldGeometry = new THREE.ExtrudeGeometry(
         [islandLeft, islandRight, islandMiddle, outerField],
         { depth: 6, bevelEnabled: false }
     );

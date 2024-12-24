@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { config, gameSettings, trackDimensions } from './config.js';
+import { config, gameSettings, trackDimensions,arcAngles } from './config.js';
 import { Car } from './models/Car.js';
 import { Truck } from './models/Truck.js';
 import { setupTrack } from './scene/Track.js';
 import { initializeGameState, updateGameState } from './game/GameState.js';
 import { setupControls } from './game/Controls.js';
+
 
 let camera, scene, renderer;
 let playerCar;
@@ -120,7 +121,6 @@ function movePlayerCar(timeDelta) {
     playerCar.position.y = playerY;
     playerCar.rotation.z = totalPlayerAngle - Math.PI / 2;
 }
-
 function onWindowResize() {
     const newAspectRatio = window.innerWidth / window.innerHeight;
     const adjustedCameraHeight = cameraWidth / newAspectRatio;

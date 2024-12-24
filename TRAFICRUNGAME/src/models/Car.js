@@ -1,16 +1,17 @@
 import * as THREE from 'three';
-import { colors } from '../config.js';
+import { colors } from '../config.js';  // Đảm bảo đường dẫn đúng
 import { pickRandom } from '../utils.js';
 import { getCarFrontTexture, getCarSideTexture } from '../textures/CarTextures.js';
 import { Wheel } from './Wheel.js';
 import { HitZone } from './HitZone.js';
+import { config } from '../config.js';  // Đảm bảo nhập khẩu config đúng
 
 export function Car() {
     const car = new THREE.Group();
     const color = pickRandom(colors.vehicle);
 
     const main = new THREE.Mesh(
-        new THREE.BoxBufferGeometry(60, 30, 15),
+        new THREE.BoxGeometry(60, 30, 15),
         new THREE.MeshLambertMaterial({ color })
     );
     main.position.z = 12;
@@ -32,7 +33,7 @@ export function Car() {
     const carRightSideTexture = getCarSideTexture();
 
     const cabin = new THREE.Mesh(
-        new THREE.BoxBufferGeometry(33, 24, 12),
+        new THREE.BoxGeometry(33, 24, 12),
         [
             new THREE.MeshLambertMaterial({ map: carFrontTexture }),
             new THREE.MeshLambertMaterial({ map: carBackTexture }),
@@ -56,7 +57,7 @@ export function Car() {
     frontWheel.position.x = 18;
     car.add(frontWheel);
 
-    if (config.showHitZones) {
+    if (config.showHitZones) {  // Kiểm tra config.showHitZones
         car.userData.hitZone1 = HitZone();
         car.userData.hitZone2 = HitZone();
     }

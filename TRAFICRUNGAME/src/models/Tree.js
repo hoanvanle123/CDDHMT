@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { colors } from '../config.js';
 import { pickRandom } from '../utils.js';
 
-const treeTrunkGeometry = new THREE.BoxBufferGeometry(15, 15, 30);
+const treeTrunkGeometry = new THREE.BoxGeometry(15, 15, 30);
 const treeTrunkMaterial = new THREE.MeshLambertMaterial({
     color: colors.treeTrunk
 });
