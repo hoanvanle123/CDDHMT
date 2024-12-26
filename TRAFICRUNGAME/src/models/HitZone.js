@@ -7,6 +7,7 @@ export function HitZone() {
     );
     hitZone.position.z = 25;
     hitZone.rotation.x = Math.PI / 2;
+    
 
     return hitZone;
 }

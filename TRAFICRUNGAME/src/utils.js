@@ -9,13 +9,12 @@ export function getDistance(coordinate1, coordinate2) {
 }
 
 export function getHitZonePosition(center, angle, clockwise, distance) {
-    const directionAngle = angle + (clockwise ? -Math.PI / 2 : +Math.PI / 2);
+    const directionAngle = angle + clockwise ? -Math.PI / 2 : +Math.PI / 2;
     return {
-        x: center.x + Math.cos(directionAngle) * distance,
-        y: center.y + Math.sin(directionAngle) * distance
+      x: center.x + Math.cos(directionAngle) * distance,
+      y: center.y + Math.sin(directionAngle) * distance
     };
 }
-
 export function getVehicleSpeed(type) {
     const speeds = {
         car: { min: 1, max: 2 },

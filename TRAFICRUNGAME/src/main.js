@@ -13,6 +13,7 @@ const gameState = initializeGameState();
 function initialize() {
     // Set up camera
     const aspectRatio = window.innerWidth / window.innerHeight;
+    
     const cameraWidth = cameraGlobalSettings.cameraWidth;  
     const cameraHeight = cameraGlobalSettings.cameraHeight;  
 
@@ -31,17 +32,27 @@ function initialize() {
     scene = new THREE.Scene();
 
     // Add lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2);
     scene.add(ambientLight);
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1);
     dirLight.position.set(100, -300, 300);
     dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
+    dirLight.shadow.camera.left = -400;
+    dirLight.shadow.camera.right = 350;
+    dirLight.shadow.camera.top = 400;
+    dirLight.shadow.camera.bottom = -300;
+    dirLight.shadow.camera.near = 100;
+    dirLight.shadow.camera.far = 800;
     scene.add(dirLight);
+    
 
     // Set up renderer
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    if (config.shadows) renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
     // Initialize game elements
@@ -53,6 +64,7 @@ function initialize() {
 
     // Handle window resizing
     window.addEventListener("resize", onWindowResize);
+    gameState.positionScoreElement();
 
     reset();
 }
@@ -89,11 +101,24 @@ function animation(timestamp) {
     const timeDelta = timestamp - gameState.lastTimestamp;
 
     movePlayerCar(timeDelta);
+
+    // Kiểm tra kết quả trả về từ updateGameState
+    // if (!updateGameState(gameState, scene, timeDelta)) {
+    //     // Hiển thị kết quả "Game Over"
+    //     gameState.resultsElement.style.display = "flex";
+    //     gameState.resultsElement.innerText = "Game Over!";
+        
+    //     // Dừng vòng lặp render
+    //     renderer.setAnimationLoop(null);
+    //     return; // Thoát khỏi hàm animation
+    // }
     updateGameState(gameState, scene, timeDelta);
 
+    // Nếu game vẫn đang chạy, tiếp tục render
     renderer.render(scene, camera);
     gameState.lastTimestamp = timestamp;
 }
+
 
 function movePlayerCar(timeDelta) {
     const playerSpeed = gameState.getPlayerSpeed();
