@@ -32,10 +32,105 @@ const wheelMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
 const treeTrunkGeometry = new THREE.BoxGeometry(15, 15, 30);
 const treeTrunkMaterial = new THREE.MeshLambertMaterial({ color: treeTrunkColor });
 const treeCrownMaterial = new THREE.MeshLambertMaterial({ color: treeCrownColor });
+class BoundingBox {
+  constructor(centerX, centerY, width, height, rotation = 0) {
+      this.center = { x: centerX, y: centerY };
+      this.width = width;
+      this.height = height;
+      this.rotation = rotation;
+  }
 
+  getCorners() {
+      const cos = Math.cos(this.rotation);
+      const sin = Math.sin(this.rotation);
+      const hw = this.width / 2;
+      const hh = this.height / 2;
+
+      return [
+          {
+              x: this.center.x + cos * hw - sin * hh,
+              y: this.center.y + sin * hw + cos * hh
+          },
+          {
+              x: this.center.x - cos * hw - sin * hh,
+              y: this.center.y - sin * hw + cos * hh
+          },
+          {
+              x: this.center.x - cos * hw + sin * hh,
+              y: this.center.y - sin * hw - cos * hh
+          },
+          {
+              x: this.center.x + cos * hw + sin * hh,
+              y: this.center.y + sin * hw - cos * hh
+          }
+      ];
+  }
+
+  intersects(other) {
+      const box1Corners = this.getCorners();
+      const box2Corners = other.getCorners();
+
+      return !this.hasSeperatingAxis(box1Corners, box2Corners) &&
+             !this.hasSeperatingAxis(box2Corners, box1Corners);
+  }
+
+  hasSeperatingAxis(corners1, corners2) {
+      for (let i = 0; i < corners1.length; i++) {
+          const a = corners1[i];
+          const b = corners1[(i + 1) % corners1.length];
+          
+          const normal = {
+              x: b.y - a.y,
+              y: a.x - b.x
+          };
+
+          let minA = Infinity, maxA = -Infinity;
+          let minB = Infinity, maxB = -Infinity;
+
+          corners1.forEach(corner => {
+              const proj = normal.x * corner.x + normal.y * corner.y;
+              minA = Math.min(minA, proj);
+              maxA = Math.max(maxA, proj);
+          });
+
+          corners2.forEach(corner => {
+              const proj = normal.x * corner.x + normal.y * corner.y;
+              minB = Math.min(minB, proj);
+              maxB = Math.max(maxB, proj);
+          });
+
+          if (maxA < minB || maxB < minA) {
+              return true;
+          }
+      }
+      return false;
+  }
+
+  // Debug method để vẽ bounding box
+  draw(scene) {
+      const corners = this.getCorners();
+      const geometry = new THREE.BufferGeometry();
+      
+      // Tạo các cạnh của box
+      const vertices = [];
+      for (let i = 0; i < corners.length; i++) {
+          const current = corners[i];
+          const next = corners[(i + 1) % corners.length];
+          vertices.push(current.x, current.y, 0);
+          vertices.push(next.x, next.y, 0);
+      }
+
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+      const lineSegments = new THREE.LineSegments(geometry, material);
+      lineSegments.position.z = 20; // Đặt box cao hơn mặt đường một chút
+      scene.add(lineSegments);
+      return lineSegments;
+  }
+}
 // Config
 const config = {
-  showHitZones: false,
+  showHitZones: true, // hiển thị bounding box 
   shadows: true, // Use shadow
   trees: true, // Add trees to the map
   curbs: true, // Show texture on the extruded geometry
@@ -116,7 +211,7 @@ renderMap(cameraWidth, cameraHeight * 2);
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
 scene.add(ambientLight);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+const dirLight = new THREE.DirectionalLight(0xffffff, 2);
 dirLight.position.set(100, -300, 300);
 dirLight.castShadow = true;
 dirLight.shadow.mapSize.width = 1024;
@@ -230,11 +325,6 @@ function Car() {
   frontWheel.position.x = 18;
   car.add(frontWheel);
 
-  if (config.showHitZones) {
-    car.userData.hitZone1 = HitZone();
-    car.userData.hitZone2 = HitZone();
-  }
-
   return car;
 }
 
@@ -338,12 +428,6 @@ function Truck() {
   frontWheel.position.x = 38;
   truck.add(frontWheel);
 
-  if (config.showHitZones) {
-    truck.userData.hitZone1 = HitZone();
-    truck.userData.hitZone2 = HitZone();
-    truck.userData.hitZone3 = HitZone();
-  }
-
   return truck;
 }
 
@@ -371,19 +455,6 @@ function Tree() {
   tree.add(crown);
 
   return tree;
-}
-
-// Hit zone function
-function HitZone() {
-  const hitZone = new THREE.Mesh(
-    new THREE.CylinderGeometry(20, 20, 60, 30),
-    new THREE.MeshLambertMaterial({ color: 0xff0000 })
-  );
-  hitZone.position.z = 25;
-  hitZone.rotation.x = Math.PI / 2;
-
-  scene.add(hitZone);
-  return hitZone;
 }
 
 // Map rendering functions
@@ -781,78 +852,53 @@ function getVehicleSpeed(type) {
 }
 
 function hitDetection() {
-  const playerHitZone1 = getHitZonePosition(
-    playerCar.position,
-    playerAngleInitial + playerAngleMoved,
-    true,
-    15
+  // Tạo bounding box cho xe người chơi
+  const playerBox = new BoundingBox(
+      playerCar.position.x,
+      playerCar.position.y,
+      30,  // chiều rộng xe người chơi
+      60,  // chiều dài xe người chơi
+      playerAngleInitial + playerAngleMoved
   );
 
-  const playerHitZone2 = getHitZonePosition(
-    playerCar.position,
-    playerAngleInitial + playerAngleMoved,
-    true,
-    -15
-  );
-
+  // Debug: Vẽ bounding box của người chơi
   if (config.showHitZones) {
-    playerCar.userData.hitZone1.position.x = playerHitZone1.x;
-    playerCar.userData.hitZone1.position.y = playerHitZone1.y;
-    playerCar.userData.hitZone2.position.x = playerHitZone2.x;
-    playerCar.userData.hitZone2.position.y = playerHitZone2.y;
+      // Xóa box cũ nếu có
+      if (playerCar.userData.boundingBox) {
+          scene.remove(playerCar.userData.boundingBox);
+      }
+      playerCar.userData.boundingBox = playerBox.draw(scene);
   }
 
-  const hit = otherVehicles.some((vehicle) => {
-    if (vehicle.type === "car") {
-      const vehicleHitZone1 = getHitZonePosition(vehicle.mesh.position, vehicle.angle, vehicle.clockwise, 15);
-      const vehicleHitZone2 = getHitZonePosition(vehicle.mesh.position, vehicle.angle, vehicle.clockwise, -15);
+  const hit = otherVehicles.some(vehicle => {
+      // Tạo bounding box cho từng xe khác
+      const vehicleBox = new BoundingBox(
+          vehicle.mesh.position.x,
+          vehicle.mesh.position.y,
+          vehicle.type === 'truck' ? 35 : 30,  // chiều rộng
+          vehicle.type === 'truck' ? 100 : 60, // chiều dài
+          //vehicle.angle + (vehicle.clockwise ? -Math.PI / 2 : Math.PI / 2)
+          //vehicle.mesh.rotation.z
+          vehicle.angle
+      );
 
+      // Debug: Vẽ bounding box của xe khác
       if (config.showHitZones) {
-        vehicle.mesh.userData.hitZone1.position.x = vehicleHitZone1.x;
-        vehicle.mesh.userData.hitZone1.position.y = vehicleHitZone1.y;
-        vehicle.mesh.userData.hitZone2.position.x = vehicleHitZone2.x;
-        vehicle.mesh.userData.hitZone2.position.y = vehicleHitZone2.y;
+          // Xóa box cũ nếu có
+          if (vehicle.mesh.userData.boundingBox) {
+              scene.remove(vehicle.mesh.userData.boundingBox);
+          }
+          vehicle.mesh.userData.boundingBox = vehicleBox.draw(scene);
       }
 
-      if (getDistance(playerHitZone1, vehicleHitZone1) < 40) return true;
-      if (getDistance(playerHitZone1, vehicleHitZone2) < 40) return true;
-      if (getDistance(playerHitZone2, vehicleHitZone1) < 40) return true;
-    }
-
-    if (vehicle.type === "truck") {
-      const vehicleHitZone1 = getHitZonePosition(vehicle.mesh.position, vehicle.angle, vehicle.clockwise, 35);
-      const vehicleHitZone2 = getHitZonePosition(vehicle.mesh.position, vehicle.angle, vehicle.clockwise, 0);
-      const vehicleHitZone3 = getHitZonePosition(vehicle.mesh.position, vehicle.angle, vehicle.clockwise, -35);
-
-      if (config.showHitZones) {
-        vehicle.mesh.userData.hitZone1.position.x = vehicleHitZone1.x;
-        vehicle.mesh.userData.hitZone1.position.y = vehicleHitZone1.y;
-        vehicle.mesh.userData.hitZone2.position.x = vehicleHitZone2.x;
-        vehicle.mesh.userData.hitZone2.position.y = vehicleHitZone2.y;
-        vehicle.mesh.userData.hitZone3.position.x = vehicleHitZone3.x;
-        vehicle.mesh.userData.hitZone3.position.y = vehicleHitZone3.y;
-      }
-
-      if (getDistance(playerHitZone1, vehicleHitZone1) < 40) return true;
-      if (getDistance(playerHitZone1, vehicleHitZone2) < 40) return true;
-      if (getDistance(playerHitZone1, vehicleHitZone3) < 40) return true;
-      if (getDistance(playerHitZone2, vehicleHitZone1) < 40) return true;
-    }
-    return false;
+      // Kiểm tra va chạm
+      return playerBox.intersects(vehicleBox);
   });
 
   if (hit) {
-    if (resultsElement) resultsElement.style.display = "flex";
-    renderer.setAnimationLoop(null); // Stop animation loop
+      if (resultsElement) resultsElement.style.display = "flex";
+      renderer.setAnimationLoop(null); // Stop animation loop
   }
-}
-
-function getHitZonePosition(center, angle, clockwise, distance) {
-  const directionAngle = angle + (clockwise ? -Math.PI / 2 : +Math.PI / 2);
-  return {
-    x: center.x + Math.cos(directionAngle) * distance,
-    y: center.y + Math.sin(directionAngle) * distance
-  };
 }
 
 function animation(timestamp) {
@@ -908,25 +954,26 @@ function reset() {
   score = 0;
   scoreElement.innerText = "Press UP";
 
+  // Xóa bounding box debug của người chơi nếu có
+  if (playerCar.userData.boundingBox) {
+      scene.remove(playerCar.userData.boundingBox);
+      playerCar.userData.boundingBox = null;
+  }
+
   // Remove other vehicles
   otherVehicles.forEach((vehicle) => {
-    // Remove vehicle mesh from scene
-    scene.remove(vehicle.mesh);
-
-    // Remove hit zone helpers if they exist
-    if (vehicle.mesh.userData.hitZone1) scene.remove(vehicle.mesh.userData.hitZone1);
-    if (vehicle.mesh.userData.hitZone2) scene.remove(vehicle.mesh.userData.hitZone2);
-    if (vehicle.mesh.userData.hitZone3) scene.remove(vehicle.mesh.userData.hitZone3);
+      // Xóa bounding box debug nếu có
+      if (vehicle.mesh.userData.boundingBox) {
+          scene.remove(vehicle.mesh.userData.boundingBox);
+      }
+      scene.remove(vehicle.mesh);
   });
   otherVehicles = [];
 
   resultsElement.style.display = "none";
   lastTimestamp = undefined;
 
-  // Place the player's car at starting position
   movePlayerCar(0);
-
-  // Render the scene
   renderer.render(scene, camera);
   ready = true;
 }
