@@ -3,16 +3,13 @@
 <head>
     <meta charset="utf-8">
     <title>Traffic run game</title>
-    <link rel="stylesheet" href="style.css"> <!-- Liên kết file CSS -->
+    <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
-    <!-- Hiển thị điểm số -->
     <div id="score">Press UP</div>
 
-    <!-- Điều khiển game -->
     <div id="controls">
         <div id="buttons">
-            <!-- Nút tăng tốc -->
             <button id="accelerate">
                 <svg width="30" height="30" viewBox="0 0 10 10">
                     <g transform="rotate(0, 5,5)">
@@ -20,7 +17,6 @@
                     </g>
                 </svg>
             </button>
-            <!-- Nút giảm tốc -->
             <button id="decelerate">
                 <svg width="30" height="30" viewBox="0 0 10 10">
                     <g transform="rotate(180, 5,5)">
@@ -35,7 +31,6 @@
         </div>
     </div>
 
-    <!-- Hiển thị kết quả -->
     <div id="results">
         <div class="content">
             <h1>You hit another vehicle</h1>
@@ -43,6 +38,6 @@
         </div>
     </div>
 
-    <script type="module" src="/src/main.js"></script> <!-- Three.js script -->
+    <script type="module" src="/src/main.js"></script>
 </body>
 </html>

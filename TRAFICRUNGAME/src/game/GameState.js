@@ -5,8 +5,6 @@ import { Truck } from '../models/Truck.js';
 import { pickRandom } from '../utils.js';
 import { hitDetection } from './Collision.js';
 
-
-
 class GameState {
     constructor() {
         this.ready = false;
@@ -68,8 +66,6 @@ export function updateGameState(gameState, scene, timeDelta) {
     if (hitDetection(gameState, scene)) {
         gameState.resultsElement.style.display = "flex";
         gameState.resultsElement.innerText = "Game Over!";
-        //renderer.setAnimationLoop(null); // Dừng vòng lặp render
-
         return false;
     }
     

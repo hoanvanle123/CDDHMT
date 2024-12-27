@@ -103,16 +103,15 @@ function animation(timestamp) {
     movePlayerCar(timeDelta);
 
     // Kiểm tra kết quả trả về từ updateGameState
-    // if (!updateGameState(gameState, scene, timeDelta)) {
-    //     // Hiển thị kết quả "Game Over"
-    //     gameState.resultsElement.style.display = "flex";
-    //     gameState.resultsElement.innerText = "Game Over!";
+    if (!updateGameState(gameState, scene, timeDelta)) {
+        // Hiển thị kết quả "Game Over"
+        gameState.resultsElement.style.display = "flex";
+        gameState.resultsElement.innerText = "Game Over!";
         
-    //     // Dừng vòng lặp render
-    //     renderer.setAnimationLoop(null);
-    //     return; // Thoát khỏi hàm animation
-    // }
-    updateGameState(gameState, scene, timeDelta);
+        // Dừng vòng lặp render
+        renderer.setAnimationLoop(null);
+        return; // Thoát khỏi hàm animation
+    }
 
     // Nếu game vẫn đang chạy, tiếp tục render
     renderer.render(scene, camera);
