@@ -11,7 +11,15 @@ function getDistance(coordinate1, coordinate2) {
   const verticalDistance = coordinate2.y - coordinate1.y;
   return Math.sqrt(horizontalDistance ** 2 + verticalDistance ** 2);
 }
-
+const debugCamera = {
+  showHelpers: true,
+  toggleHelpers: function() {
+      this.showHelpers = !this.showHelpers;
+      if (cameraHelper) cameraHelper.visible = this.showHelpers;
+      if (axesHelper) axesHelper.visible = this.showHelpers;
+      if (directionHelper) directionHelper.visible = this.showHelpers;
+  }
+};
 // Constants
 const vehicleColors = [
   0xa52523,
@@ -25,7 +33,13 @@ const trackColor = "#546E90";
 const edgeColor = "#725F48";
 const treeCrownColor = 0x498c2c;
 const treeTrunkColor = 0x4b3f2f;
-
+//change camera
+let currentCamera;
+let topDownCamera; // camera góc nhìn từ trên xuống (camera hiện tại)
+let driverCamera; // camera góc nhìn từ đầu xe
+let cameraHelper;
+let axesHelper;
+let directionHelper;
 // Geometries
 const wheelGeometry = new THREE.BoxGeometry(12, 33, 12);
 const wheelMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
@@ -188,20 +202,91 @@ const aspectRatio = window.innerWidth / window.innerHeight;
 const cameraWidth = 960;
 const cameraHeight = cameraWidth / aspectRatio;
 
-const camera = new THREE.OrthographicCamera(
-  cameraWidth / -2, // left
-  cameraWidth / 2, // right
-  cameraHeight / 2, // top
-  cameraHeight / -2, // bottom
-  50, // near plane
-  700 // far plane
-);
 
-camera.position.set(0, -210, 300);
-camera.lookAt(0, 0, 0);
+function setupCameras() {
+  // Set up top-down camera (camera hiện tại)
+  topDownCamera = new THREE.OrthographicCamera(
+      cameraWidth / -2,
+      cameraWidth / 2,
+      cameraHeight / 2,
+      cameraHeight / -2,
+      50,
+      700
+  );
+  topDownCamera.position.set(0, -210, 300);
+  topDownCamera.lookAt(0, 0, 0);
 
+  // Set up driver camera (camera mới)
+  driverCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  
+  // Sử dụng camera top-down làm camera mặc định
+  currentCamera = topDownCamera;
+  setupCameraHelpers();
+}
 const scene = new THREE.Scene();
+setupCameras();
+function updateDriverCamera() {
+  if (!playerCar) return;
 
+  // Thêm 90 độ (PI/2) vào góc để xoay camera về phía trước xe
+  const angle = playerAngleInitial + playerAngleMoved - Math.PI/2;
+  const heightAboveCar = 15;
+  const offsetFromFront = 20;
+  
+  const x = playerCar.position.x + Math.cos(angle) * offsetFromFront;
+  const y = playerCar.position.y + Math.sin(angle) * offsetFromFront;
+  
+  driverCamera.position.set(x, y, heightAboveCar);
+
+  const lookAtDistance = 100;
+  const lookAtX = playerCar.position.x + Math.cos(angle) * (offsetFromFront + lookAtDistance);
+  const lookAtY = playerCar.position.y + Math.sin(angle) * (offsetFromFront + lookAtDistance);
+  
+  driverCamera.lookAt(lookAtX, lookAtY, heightAboveCar);
+  driverCamera.up.set(0, 0, 1);
+
+  // Cập nhật các helper
+  if (cameraHelper) {
+      cameraHelper.update();
+  }
+
+  if (directionHelper) {
+      // Cập nhật vị trí của direction helper theo camera
+      directionHelper.position.set(x, y, heightAboveCar);
+      
+      // Tính vector hướng nhìn
+      const direction = new THREE.Vector3(
+          lookAtX - x,
+          lookAtY - y,
+          0
+      ).normalize();
+      
+      // Cập nhật hướng mũi tên
+      directionHelper.setDirection(direction);
+  }
+
+  // Tùy chọn: in ra console để debug
+  console.log('Camera Position:', { x, y, z: heightAboveCar });
+  console.log('Look At:', { x: lookAtX, y: lookAtY, z: heightAboveCar });
+}
+
+function setupCameraHelpers() {
+  // Axes helper (hiển thị 3 trục x,y,z)
+  axesHelper = new THREE.AxesHelper(50);
+  scene.add(axesHelper);
+
+  // Camera helper (hiển thị khung nhìn của camera)
+  cameraHelper = new THREE.CameraHelper(driverCamera);
+  scene.add(cameraHelper);
+
+  // Direction helper (mũi tên chỉ hướng nhìn)
+  const dir = new THREE.Vector3();
+  const origin = new THREE.Vector3();
+  const length = 50;
+  const hex = 0xffff00;
+  directionHelper = new THREE.ArrowHelper(dir, origin, length, hex);
+  scene.add(directionHelper);
+}
 const playerCar = Car();
 scene.add(playerCar);
 
@@ -913,6 +998,8 @@ function animation(timestamp) {
 
   const laps = Math.floor(Math.abs(playerAngleMoved) / (Math.PI * 2));
 
+  updateDriverCamera();
+
   // Update score if it changed
   if (laps !== score) {
     score = laps;
@@ -926,7 +1013,7 @@ function animation(timestamp) {
 
   hitDetection();
 
-  renderer.render(scene, camera);
+  renderer.render(scene, currentCamera);
   lastTimestamp = timestamp;
 }
 
@@ -974,7 +1061,7 @@ function reset() {
   lastTimestamp = undefined;
 
   movePlayerCar(0);
-  renderer.render(scene, camera);
+  renderer.render(scene, currentCamera);
   ready = true;
 }
 
@@ -996,7 +1083,9 @@ accelerateButton.addEventListener("mouseup", function () {
 decelerateButton.addEventListener("mouseup", function () {
   decelerate = false;
 });
-
+document.getElementById('toggleHelpers').addEventListener('click', () => {
+    debugCamera.toggleHelpers();
+});
 window.addEventListener("keydown", function (event) {
   if (event.key === "ArrowUp") {
     startGame();
@@ -1023,24 +1112,49 @@ window.addEventListener("keyup", function (event) {
     return;
   }
 });
-
+const switchCameraButton = document.getElementById('switchCamera');
+switchCameraButton.addEventListener('click', () => {
+    currentCamera = currentCamera === topDownCamera ? driverCamera : topDownCamera;
+    
+    // Cập nhật tỉ lệ khung hình nếu cần
+    if (currentCamera === driverCamera) {
+        driverCamera.aspect = window.innerWidth / window.innerHeight;
+        driverCamera.updateProjectionMatrix();
+    }
+});
 // Handle window resize
 window.addEventListener("resize", () => {
   console.log("resize", window.innerWidth, window.innerHeight);
-
-  // Adjust camera
   const newAspectRatio = window.innerWidth / window.innerHeight;
-  const adjustedCameraHeight = cameraWidth / newAspectRatio;
 
-  camera.top = adjustedCameraHeight / 2;
-  camera.bottom = adjustedCameraHeight / -2;
-  camera.updateProjectionMatrix();
+  // Cập nhật top-down camera (OrthographicCamera)
+  if (topDownCamera) {
+    const adjustedCameraHeight = cameraWidth / newAspectRatio;
+    topDownCamera.top = adjustedCameraHeight / 2;
+    topDownCamera.bottom = adjustedCameraHeight / -2;
+    topDownCamera.updateProjectionMatrix();
+  }
 
-  positionScoreElement();
+  // Cập nhật driver camera (PerspectiveCamera) 
+  if (driverCamera) {
+    driverCamera.aspect = newAspectRatio;
+    driverCamera.updateProjectionMatrix();
+  }
 
-  // Reset renderer
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.render(scene, camera);
+  // Cập nhật renderer size
+  if (renderer) {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  // Cập nhật vị trí score element
+  if (scoreElement) {
+    positionScoreElement();
+  }
+
+  // Render lại scene với camera hiện tại
+  if (scene && currentCamera) {
+    renderer.render(scene, currentCamera);
+  }
 });
 
 // Start the game
