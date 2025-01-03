@@ -1,8 +1,15 @@
 {
-  "hash": "806e75ed",
-  "configHash": "9434129d",
+  "hash": "c98722f0",
+  "configHash": "41238272",
   "lockfileHash": "e3b0c442",
-  "browserHash": "682ec533",
-  "optimized": {},
+  "browserHash": "16a027c1",
+  "optimized": {
+    "three": {
+      "src": "../../TRAFIC RUN GAME(FINAL)/node_modules/three/build/three.module.js",
+      "file": "three.js",
+      "fileHash": "174fc376",
+      "needsInterop": false
+    }
+  },
   "chunks": {}
 }

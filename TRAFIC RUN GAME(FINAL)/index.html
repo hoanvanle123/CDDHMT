@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Traffic run game</title>
+    <link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+    <div id="score">Press UP</div>
+
+    <!-- Game Controls Group -->
+    <div id="game-controls">
+        <button id="switchCamera" class="control-btn">
+            Switch Camera View
+        </button>
+        <button id="toggleHelpers" class="control-btn">
+            Toggle Debug View
+        </button>
+    </div>
+
+    <!-- Điều khiển game -->
+    <div id="controls">
+        <div id="buttons">
+            <button id="accelerate">
+                <svg width="30" height="30" viewBox="0 0 10 10">
+                    <g transform="rotate(0, 5,5)">
+                        <path d="M5,4 L7,6 L3,6 L5,4" />
+                    </g>
+                </svg>
+            </button>
+            <button id="decelerate">
+                <svg width="30" height="30" viewBox="0 0 10 10">
+                    <g transform="rotate(180, 5,5)">
+                        <path d="M5,4 L7,6 L3,6 L5,4" />
+                    </g>
+                </svg>
+            </button>
+        </div>
+        <div id="instructions">
+            Press UP to start. Avoid collision with other vehicles by accelerating
+            or decelerating with the UP and DOWN keys.
+        </div>
+    </div>
+
+    <div id="results">
+        <div class="content">
+            <h1>You hit another vehicle</h1>
+            <p>To reset the game press R</p>
+        </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+</body>
+</html>

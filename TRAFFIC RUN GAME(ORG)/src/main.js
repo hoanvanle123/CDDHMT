@@ -1,207 +1,121 @@
+// ============================================================================
+// 1. IMPORT THƯ VIỆN VÀ THIẾT LẬP BAN ĐẦU
+// ============================================================================
 import * as THREE from 'three';
-window.focus(); // Capture keys right away (by default focus is on editor)
+window.focus(); // Bắt sự kiện phím ngay lập tức
 
-// Helper functions
-function pickRandom(array) {
-  return array[Math.floor(Math.random() * array.length)];
-}
+// ============================================================================
+// 2. HẰNG SỐ VÀ CẤU HÌNH
+// ============================================================================
+// Cài đặt trò chơi
+const speed = 0.0017; // Tốc độ di chuyển cơ bản
+const trackRadius = 225; // Bán kính đường đua
+const trackWidth = 45;   // Độ rộng đường đua
+const innerTrackRadius = trackRadius - trackWidth; // Bán kính vòng trong
+const outerTrackRadius = trackRadius + trackWidth; // Bán kính vòng ngoài
 
-function getDistance(coordinate1, coordinate2) {
-  const horizontalDistance = coordinate2.x - coordinate1.x;
-  const verticalDistance = coordinate2.y - coordinate1.y;
-  return Math.sqrt(horizontalDistance ** 2 + verticalDistance ** 2);
-}
-const debugCamera = {
-  showHelpers: true,
-  toggleHelpers: function() {
-      this.showHelpers = !this.showHelpers;
-      if (cameraHelper) cameraHelper.visible = this.showHelpers;
-      if (axesHelper) axesHelper.visible = this.showHelpers;
-      if (directionHelper) directionHelper.visible = this.showHelpers;
-  }
+// Các góc của đường đua
+const arcAngle1 = (1 / 3) * Math.PI;
+const deltaY = Math.sin(arcAngle1) * innerTrackRadius;
+const arcAngle2 = Math.asin(deltaY / outerTrackRadius);
+const arcCenterX = (Math.cos(arcAngle1) * innerTrackRadius + Math.cos(arcAngle2) * outerTrackRadius) / 2;
+const arcAngle3 = Math.acos(arcCenterX / innerTrackRadius);
+const arcAngle4 = Math.acos(arcCenterX / outerTrackRadius);
+
+// Màu sắc
+const vehicleColors = [0xa52523, 0xef2d56, 0x0ad3ff, 0xff9f1c]; // Màu xe
+const lawnGreen = "#67C240";    // Màu cỏ
+const trackColor = "#546E90";    // Màu đường đua
+const edgeColor = "#725F48";     // Màu viền
+const treeCrownColor = 0x498c2c; // Màu tán cây
+const treeTrunkColor = 0x4b3f2f; // Màu thân cây
+
+// Đối tượng cấu hình
+const config = {
+  showHitZones: true,  // Hiển thị vùng va chạm (bounding box)
+  shadows: true,       // Bật đổ bóng
+  trees: true,         // Hiển thị cây
+  curbs: true,         // Hiển thị lề đường
+  grid: false          // Hiển thị lưới tham chiếu
 };
-// Constants
-const vehicleColors = [
-  0xa52523,
-  0xef2d56,
-  0x0ad3ff,
-  0xff9f1c
-];
 
-const lawnGreen = "#67C240";
-const trackColor = "#546E90";
-const edgeColor = "#725F48";
-const treeCrownColor = 0x498c2c;
-const treeTrunkColor = 0x4b3f2f;
-//change camera
-let currentCamera;
-let topDownCamera; // camera góc nhìn từ trên xuống (camera hiện tại)
-let driverCamera; // camera góc nhìn từ đầu xe
-let cameraHelper;
-let axesHelper;
-let directionHelper;
-// Geometries
+// Geometries và Materials
 const wheelGeometry = new THREE.BoxGeometry(12, 33, 12);
 const wheelMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
 const treeTrunkGeometry = new THREE.BoxGeometry(15, 15, 30);
 const treeTrunkMaterial = new THREE.MeshLambertMaterial({ color: treeTrunkColor });
 const treeCrownMaterial = new THREE.MeshLambertMaterial({ color: treeCrownColor });
-class BoundingBox {
-  constructor(centerX, centerY, width, height, rotation = 0) {
-      this.center = { x: centerX, y: centerY };
-      this.width = width;
-      this.height = height;
-      this.rotation = rotation;
-  }
 
-  getCorners() {
-      const cos = Math.cos(this.rotation);
-      const sin = Math.sin(this.rotation);
-      const hw = this.width / 2;
-      const hh = this.height / 2;
-
-      return [
-          {
-              x: this.center.x + cos * hw - sin * hh,
-              y: this.center.y + sin * hw + cos * hh
-          },
-          {
-              x: this.center.x - cos * hw - sin * hh,
-              y: this.center.y - sin * hw + cos * hh
-          },
-          {
-              x: this.center.x - cos * hw + sin * hh,
-              y: this.center.y - sin * hw - cos * hh
-          },
-          {
-              x: this.center.x + cos * hw + sin * hh,
-              y: this.center.y + sin * hw - cos * hh
-          }
-      ];
-  }
-
-  intersects(other) {
-      const box1Corners = this.getCorners();
-      const box2Corners = other.getCorners();
-
-      return !this.hasSeperatingAxis(box1Corners, box2Corners) &&
-             !this.hasSeperatingAxis(box2Corners, box1Corners);
-  }
-
-  hasSeperatingAxis(corners1, corners2) {
-      for (let i = 0; i < corners1.length; i++) {
-          const a = corners1[i];
-          const b = corners1[(i + 1) % corners1.length];
-          
-          const normal = {
-              x: b.y - a.y,
-              y: a.x - b.x
-          };
-
-          let minA = Infinity, maxA = -Infinity;
-          let minB = Infinity, maxB = -Infinity;
-
-          corners1.forEach(corner => {
-              const proj = normal.x * corner.x + normal.y * corner.y;
-              minA = Math.min(minA, proj);
-              maxA = Math.max(maxA, proj);
-          });
-
-          corners2.forEach(corner => {
-              const proj = normal.x * corner.x + normal.y * corner.y;
-              minB = Math.min(minB, proj);
-              maxB = Math.max(maxB, proj);
-          });
-
-          if (maxA < minB || maxB < minA) {
-              return true;
-          }
-      }
-      return false;
-  }
-
-  // Debug method để vẽ bounding box
-  draw(scene) {
-      const corners = this.getCorners();
-      const geometry = new THREE.BufferGeometry();
-      
-      // Tạo các cạnh của box
-      const vertices = [];
-      for (let i = 0; i < corners.length; i++) {
-          const current = corners[i];
-          const next = corners[(i + 1) % corners.length];
-          vertices.push(current.x, current.y, 0);
-          vertices.push(next.x, next.y, 0);
-      }
-
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-      const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
-      const lineSegments = new THREE.LineSegments(geometry, material);
-      lineSegments.position.z = 20; // Đặt box cao hơn mặt đường một chút
-      scene.add(lineSegments);
-      return lineSegments;
-  }
-}
-// Config
-const config = {
-  showHitZones: true, // hiển thị bounding box 
-  shadows: true, // Use shadow
-  trees: true, // Add trees to the map
-  curbs: true, // Show texture on the extruded geometry
-  grid: false // Show grid helper
-};
-
-// Global variables
-let score;
-const speed = 0.0017;
-
-const playerAngleInitial = Math.PI;
-let playerAngleMoved;
-let accelerate = false; // Is the player accelerating
-let decelerate = false; // Is the player decelerating
-
-let otherVehicles = [];
-let ready;
-let lastTimestamp;
-
-// Track
-const trackRadius = 225;
-const trackWidth = 45;
-const innerTrackRadius = trackRadius - trackWidth;
-const outerTrackRadius = trackRadius + trackWidth;
-
-const arcAngle1 = (1 / 3) * Math.PI; // 60 degrees
-
-const deltaY = Math.sin(arcAngle1) * innerTrackRadius;
-const arcAngle2 = Math.asin(deltaY / outerTrackRadius);
-
-const arcCenterX =
-  (Math.cos(arcAngle1) * innerTrackRadius +
-    Math.cos(arcAngle2) * outerTrackRadius) /
-  2;
-
-const arcAngle3 = Math.acos(arcCenterX / innerTrackRadius);
-const arcAngle4 = Math.acos(arcCenterX / outerTrackRadius);
-
-// DOM elements
+// ============================================================================
+// 3. KHỞI TẠO SCENE VÀ UI
+// ============================================================================
+// DOM Elements
 const scoreElement = document.getElementById("score");
 const buttonsElement = document.getElementById("buttons");
 const instructionsElement = document.getElementById("instructions");
 const resultsElement = document.getElementById("results");
 const accelerateButton = document.getElementById("accelerate");
 const decelerateButton = document.getElementById("decelerate");
-
-// Set up scene
-setTimeout(() => {
-  if (ready) instructionsElement.style.opacity = 1;
-  buttonsElement.style.opacity = 1;
-}, 4000);
-
-// Initialize ThreeJs
+// Khởi tạo Three.js
 const aspectRatio = window.innerWidth / window.innerHeight;
 const cameraWidth = 960;
 const cameraHeight = cameraWidth / aspectRatio;
 
+// Thiết lập Scene
+const scene = new THREE.Scene();
+const playerCar = Car();
+scene.add(playerCar);
+
+// Thiết lập ánh sáng
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+dirLight.position.set(100, -300, 300);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 1024;
+dirLight.shadow.mapSize.height = 1024;
+dirLight.shadow.camera.left = -400;
+dirLight.shadow.camera.right = 350;
+dirLight.shadow.camera.top = 400;
+dirLight.shadow.camera.bottom = -300;
+dirLight.shadow.camera.near = 100;
+dirLight.shadow.camera.far = 800;
+scene.add(dirLight);
+
+// Thiết lập Renderer
+const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    powerPreference: "high-performance"
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+if (config.shadows) renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+// Khởi tạo môi trường game
+renderMap(cameraWidth, cameraHeight * 2);  // Tạo bản đồ game
+// Khởi tạo Grid (tùy chọn)
+if (config.grid) {
+    const gridHelper = new THREE.GridHelper(80, 8);
+    gridHelper.rotation.x = Math.PI / 2;
+    scene.add(gridHelper);
+}
+
+// UI Setup
+setTimeout(() => {
+    if (ready) instructionsElement.style.opacity = 1;
+    buttonsElement.style.opacity = 1;
+}, 4000);
+
+// ============================================================================
+// 4. THIẾT LẬP VÀ QUẢN LÝ CAMERA
+// ============================================================================
+let currentCamera;    // Camera hiện tại đang sử dụng
+let topDownCamera;    // Camera nhìn từ trên xuống
+let driverCamera;     // Camera góc nhìn người lái
+let cameraHelper;     // Helper hiển thị khung camera
+let axesHelper;       // Helper hiển thị trục tọa độ
+let directionHelper;  // Helper hiển thị hướng nhìn
 
 function setupCameras() {
   // Set up top-down camera (camera hiện tại)
@@ -223,7 +137,7 @@ function setupCameras() {
   currentCamera = topDownCamera;
   setupCameraHelpers();
 }
-const scene = new THREE.Scene();
+
 setupCameras();
 function updateDriverCamera() {
   if (!playerCar) return;
@@ -287,76 +201,39 @@ function setupCameraHelpers() {
   directionHelper = new THREE.ArrowHelper(dir, origin, length, hex);
   scene.add(directionHelper);
 }
-const playerCar = Car();
-scene.add(playerCar);
 
-renderMap(cameraWidth, cameraHeight * 2);
 
-// Set up lights
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-scene.add(ambientLight);
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 2);
-dirLight.position.set(100, -300, 300);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.width = 1024;
-dirLight.shadow.mapSize.height = 1024;
-dirLight.shadow.camera.left = -400;
-dirLight.shadow.camera.right = 350;
-dirLight.shadow.camera.top = 400;
-dirLight.shadow.camera.bottom = -300;
-dirLight.shadow.camera.near = 100;
-dirLight.shadow.camera.far = 800;
-scene.add(dirLight);
-
-// Set up grid (optional)
-if (config.grid) {
-  const gridHelper = new THREE.GridHelper(80, 8);
-  gridHelper.rotation.x = Math.PI / 2;
-  scene.add(gridHelper);
+// Helper functions
+function pickRandom(array) {
+  return array[Math.floor(Math.random() * array.length)];
 }
 
-// Set up renderer
-const renderer = new THREE.WebGLRenderer({
-  antialias: true,
-  powerPreference: "high-performance"
-});
-renderer.setSize(window.innerWidth, window.innerHeight);
-if (config.shadows) renderer.shadowMap.enabled = true;
-document.body.appendChild(renderer.domElement);
+const debugCamera = {
+  showHelpers: true,
+  toggleHelpers: function() {
+      this.showHelpers = !this.showHelpers;
+      if (cameraHelper) cameraHelper.visible = this.showHelpers;
+      if (axesHelper) axesHelper.visible = this.showHelpers;
+      if (directionHelper) directionHelper.visible = this.showHelpers;
+  }
+};
 
-// Car textures
-function getCarFrontTexture() {
-  const canvas = document.createElement("canvas");
-  canvas.width = 64;
-  canvas.height = 32;
-  const context = canvas.getContext("2d");
 
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, 64, 32);
+// ============================================================================
+// 5. QUẢN LÝ TRẠNG THÁI TRÒ CHƠI
+// ============================================================================
+let score;              // Điểm số
+let playerAngleInitial = Math.PI;  // Góc ban đầu của người chơi
+let playerAngleMoved;   // Góc đã di chuyển
+let accelerate = false; // Trạng thái tăng tốc
+let decelerate = false; // Trạng thái giảm tốc
+let otherVehicles = []; // Mảng các xe khác
+let ready;              // Trạng thái sẵn sàng
+let lastTimestamp;      // Timestamp cuối cùng
 
-  context.fillStyle = "#666666";
-  context.fillRect(8, 8, 48, 24);
-
-  return new THREE.CanvasTexture(canvas);
-}
-
-function getCarSideTexture() {
-  const canvas = document.createElement("canvas");
-  canvas.width = 128;
-  canvas.height = 32;
-  const context = canvas.getContext("2d");
-
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, 128, 32);
-
-  context.fillStyle = "#666666";
-  context.fillRect(10, 8, 38, 24);
-  context.fillRect(58, 8, 60, 24);
-
-  return new THREE.CanvasTexture(canvas);
-}
-
+// ============================================================================
+// 6. LỚP XE VÀ KHỞI TẠO
+// ============================================================================
 // Car function
 function Car() {
   const car = new THREE.Group();
@@ -411,46 +288,6 @@ function Car() {
   car.add(frontWheel);
 
   return car;
-}
-
-// Wheel function
-function Wheel() {
-  const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
-  wheel.position.z = 6;
-  wheel.castShadow = false;
-  wheel.receiveShadow = false;
-  return wheel;
-}
-
-// Truck textures
-function getTruckFrontTexture() {
-  const canvas = document.createElement("canvas");
-  canvas.width = 32;
-  canvas.height = 32;
-  const context = canvas.getContext("2d");
-
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, 32, 32);
-
-  context.fillStyle = "#666666";
-  context.fillRect(0, 5, 32, 10);
-
-  return new THREE.CanvasTexture(canvas);
-}
-
-function getTruckSideTexture() {
-  const canvas = document.createElement("canvas");
-  canvas.width = 32;
-  canvas.height = 32;
-  const context = canvas.getContext("2d");
-
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, 32, 32);
-
-  context.fillStyle = "#666666";
-  context.fillRect(17, 5, 15, 10);
-
-  return new THREE.CanvasTexture(canvas);
 }
 
 // Truck function
@@ -516,6 +353,82 @@ function Truck() {
   return truck;
 }
 
+// Wheel function
+function Wheel() {
+  const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+  wheel.position.z = 6;
+  wheel.castShadow = false;
+  wheel.receiveShadow = false;
+  return wheel;
+}
+
+// Car textures
+function getCarFrontTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 32;
+  const context = canvas.getContext("2d");
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, 64, 32);
+
+  context.fillStyle = "#666666";
+  context.fillRect(8, 8, 48, 24);
+
+  return new THREE.CanvasTexture(canvas);
+}
+
+function getCarSideTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 32;
+  const context = canvas.getContext("2d");
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, 128, 32);
+
+  context.fillStyle = "#666666";
+  context.fillRect(10, 8, 38, 24);
+  context.fillRect(58, 8, 60, 24);
+
+  return new THREE.CanvasTexture(canvas);
+}
+
+// Truck textures
+function getTruckFrontTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 32;
+  canvas.height = 32;
+  const context = canvas.getContext("2d");
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, 32, 32);
+
+  context.fillStyle = "#666666";
+  context.fillRect(0, 5, 32, 10);
+
+  return new THREE.CanvasTexture(canvas);
+}
+
+function getTruckSideTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 32;
+  canvas.height = 32;
+  const context = canvas.getContext("2d");
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, 32, 32);
+
+  context.fillStyle = "#666666";
+  context.fillRect(17, 5, 15, 10);
+
+  return new THREE.CanvasTexture(canvas);
+}
+
+// ============================================================================
+// 7. TẠO MÔI TRƯỜNG VÀ BẢN ĐỒ
+// ============================================================================
+
 // Tree function
 function Tree() {
   const tree = new THREE.Group();
@@ -540,6 +453,73 @@ function Tree() {
   tree.add(crown);
 
   return tree;
+}
+
+function renderMap(mapWidth, mapHeight) {
+  const lineMarkingsTexture = getLineMarkings(mapWidth, mapHeight);
+
+  const planeGeometry = new THREE.PlaneGeometry(mapWidth, mapHeight);
+  const planeMaterial = new THREE.MeshLambertMaterial({
+    map: lineMarkingsTexture
+  });
+  const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+  plane.receiveShadow = true;
+  plane.matrixAutoUpdate = false;
+  scene.add(plane);
+
+  const islandLeft = getLeftIsland();
+  const islandMiddle = getMiddleIsland();
+  const islandRight = getRightIsland();
+  const outerField = getOuterField(mapWidth, mapHeight);
+
+  // Mapping curb textures
+  const curbsTexture = getCurbsTexture(mapWidth, mapHeight);
+  curbsTexture.offset = new THREE.Vector2(0.5, 0.5);
+  curbsTexture.repeat.set(1 / mapWidth, 1 / mapHeight);
+
+  const fieldGeometry = new THREE.ExtrudeGeometry(
+    [islandLeft, islandRight, islandMiddle, outerField],
+    { depth: 6, bevelEnabled: false }
+  );
+
+  const fieldMesh = new THREE.Mesh(fieldGeometry, [
+    new THREE.MeshLambertMaterial({
+      color: !config.curbs && lawnGreen,
+      map: config.curbs && curbsTexture
+    }),
+    new THREE.MeshLambertMaterial({ color: 0x23311c })
+  ]);
+  fieldMesh.receiveShadow = true;
+  fieldMesh.matrixAutoUpdate = false;
+  scene.add(fieldMesh);
+
+  positionScoreElement();
+
+  if (config.trees) {
+    const trees = [
+      { x: 1.3, y: 0 },
+      { x: 1.3, y: 1.9 },
+      { x: 0.8, y: 2 },
+      { x: 1.8, y: 2 },
+      { x: -1, y: 2 },
+      { x: -2, y: 1.8 },
+      { x: 0.8, y: -2 },
+      { x: 1.8, y: -2 },
+      { x: -1, y: -2 },
+      { x: -2, y: -1.8 },
+      { x: 0.6, y: -2.3 },
+      { x: 1.5, y: -2.4 },
+      { x: -0.7, y: -2.4 },
+      { x: -1.5, y: -1.8 }
+    ];
+
+    trees.forEach(({ x, y }) => {
+      const tree = Tree();
+      tree.position.x = arcCenterX * x;
+      tree.position.y = arcCenterX * y;
+      scene.add(tree);
+    });
+  }
 }
 
 // Map rendering functions
@@ -813,72 +793,9 @@ function getOuterField(mapWidth, mapHeight) {
   return field;
 }
 
-function renderMap(mapWidth, mapHeight) {
-  const lineMarkingsTexture = getLineMarkings(mapWidth, mapHeight);
-
-  const planeGeometry = new THREE.PlaneGeometry(mapWidth, mapHeight);
-  const planeMaterial = new THREE.MeshLambertMaterial({
-    map: lineMarkingsTexture
-  });
-  const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-  plane.receiveShadow = true;
-  plane.matrixAutoUpdate = false;
-  scene.add(plane);
-
-  const islandLeft = getLeftIsland();
-  const islandMiddle = getMiddleIsland();
-  const islandRight = getRightIsland();
-  const outerField = getOuterField(mapWidth, mapHeight);
-
-  // Mapping curb textures
-  const curbsTexture = getCurbsTexture(mapWidth, mapHeight);
-  curbsTexture.offset = new THREE.Vector2(0.5, 0.5);
-  curbsTexture.repeat.set(1 / mapWidth, 1 / mapHeight);
-
-  const fieldGeometry = new THREE.ExtrudeGeometry(
-    [islandLeft, islandRight, islandMiddle, outerField],
-    { depth: 6, bevelEnabled: false }
-  );
-
-  const fieldMesh = new THREE.Mesh(fieldGeometry, [
-    new THREE.MeshLambertMaterial({
-      color: !config.curbs && lawnGreen,
-      map: config.curbs && curbsTexture
-    }),
-    new THREE.MeshLambertMaterial({ color: 0x23311c })
-  ]);
-  fieldMesh.receiveShadow = true;
-  fieldMesh.matrixAutoUpdate = false;
-  scene.add(fieldMesh);
-
-  positionScoreElement();
-
-  if (config.trees) {
-    const trees = [
-      { x: 1.3, y: 0 },
-      { x: 1.3, y: 1.9 },
-      { x: 0.8, y: 2 },
-      { x: 1.8, y: 2 },
-      { x: -1, y: 2 },
-      { x: -2, y: 1.8 },
-      { x: 0.8, y: -2 },
-      { x: 1.8, y: -2 },
-      { x: -1, y: -2 },
-      { x: -2, y: -1.8 },
-      { x: 0.6, y: -2.3 },
-      { x: 1.5, y: -2.4 },
-      { x: -0.7, y: -2.4 },
-      { x: -1.5, y: -1.8 }
-    ];
-
-    trees.forEach(({ x, y }) => {
-      const tree = Tree();
-      tree.position.x = arcCenterX * x;
-      tree.position.y = arcCenterX * y;
-      scene.add(tree);
-    });
-  }
-}
+// ============================================================================
+// 8. CƠ CHẾ VÀ VẬT LÝ TRÒ CHƠI
+// ============================================================================
 
 function movePlayerCar(timeDelta) {
   const playerSpeed = getPlayerSpeed();
@@ -936,6 +853,107 @@ function getVehicleSpeed(type) {
   return minimumSpeed + Math.random() * (maximumSpeed - minimumSpeed);
 }
 
+// ============================================================================
+// 9. PHÁT HIỆN VA CHẠM
+// ============================================================================
+
+class BoundingBox {
+  constructor(centerX, centerY, width, height, rotation = 0) {
+      this.center = { x: centerX, y: centerY };
+      this.width = width;
+      this.height = height;
+      this.rotation = rotation;
+  }
+
+  getCorners() {
+      const cos = Math.cos(this.rotation);
+      const sin = Math.sin(this.rotation);
+      const hw = this.width / 2;
+      const hh = this.height / 2;
+
+      return [
+          {
+              x: this.center.x + cos * hw - sin * hh,
+              y: this.center.y + sin * hw + cos * hh
+          },
+          {
+              x: this.center.x - cos * hw - sin * hh,
+              y: this.center.y - sin * hw + cos * hh
+          },
+          {
+              x: this.center.x - cos * hw + sin * hh,
+              y: this.center.y - sin * hw - cos * hh
+          },
+          {
+              x: this.center.x + cos * hw + sin * hh,
+              y: this.center.y + sin * hw - cos * hh
+          }
+      ];
+  }
+
+  intersects(other) {
+      const box1Corners = this.getCorners();
+      const box2Corners = other.getCorners();
+
+      return !this.hasSeperatingAxis(box1Corners, box2Corners) &&
+             !this.hasSeperatingAxis(box2Corners, box1Corners);
+  }
+
+  hasSeperatingAxis(corners1, corners2) {
+      for (let i = 0; i < corners1.length; i++) {
+          const a = corners1[i];
+          const b = corners1[(i + 1) % corners1.length];
+          
+          const normal = {
+              x: b.y - a.y,
+              y: a.x - b.x
+          };
+
+          let minA = Infinity, maxA = -Infinity;
+          let minB = Infinity, maxB = -Infinity;
+
+          corners1.forEach(corner => {
+              const proj = normal.x * corner.x + normal.y * corner.y;
+              minA = Math.min(minA, proj);
+              maxA = Math.max(maxA, proj);
+          });
+
+          corners2.forEach(corner => {
+              const proj = normal.x * corner.x + normal.y * corner.y;
+              minB = Math.min(minB, proj);
+              maxB = Math.max(maxB, proj);
+          });
+
+          if (maxA < minB || maxB < minA) {
+              return true;
+          }
+      }
+      return false;
+  }
+
+  // Debug method để vẽ bounding box
+  draw(scene) {
+      const corners = this.getCorners();
+      const geometry = new THREE.BufferGeometry();
+      
+      // Tạo các cạnh của box
+      const vertices = [];
+      for (let i = 0; i < corners.length; i++) {
+          const current = corners[i];
+          const next = corners[(i + 1) % corners.length];
+          vertices.push(current.x, current.y, 0);
+          vertices.push(next.x, next.y, 0);
+      }
+
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+      const lineSegments = new THREE.LineSegments(geometry, material);
+      lineSegments.position.z = 20; // Đặt box cao hơn mặt đường một chút
+      scene.add(lineSegments);
+      return lineSegments;
+  }
+}
+
 function hitDetection() {
   // Tạo bounding box cho xe người chơi
   const playerBox = new BoundingBox(
@@ -986,6 +1004,9 @@ function hitDetection() {
   }
 }
 
+// ============================================================================
+// 10. VÒNG LẶP VÀ HOẠT ẢNH GAME
+// ============================================================================
 function animation(timestamp) {
   if (!lastTimestamp) {
     lastTimestamp = timestamp;
@@ -1027,14 +1048,6 @@ function startGame() {
   }
 }
 
-function positionScoreElement() {
-  const arcCenterXinPixels = (arcCenterX / cameraWidth) * window.innerWidth;
-  scoreElement.style.cssText = `
-    left: ${window.innerWidth / 2 - arcCenterXinPixels * 1.3}px;
-    top: ${window.innerHeight / 2}px
-  `;
-}
-
 function reset() {
   // Reset position and score
   playerAngleMoved = 0;
@@ -1065,7 +1078,24 @@ function reset() {
   ready = true;
 }
 
-// Event listeners
+// ============================================================================
+// 11. TIỆN ÍCH VÀ HÀM PHỤ TRỢ
+// ============================================================================
+// Hàm định vị điểm số
+function positionScoreElement() {
+  const arcCenterXinPixels = (arcCenterX / cameraWidth) * window.innerWidth;
+  scoreElement.style.cssText = `
+      left: ${window.innerWidth / 2 - arcCenterXinPixels * 1.3}px;
+      top: ${window.innerHeight / 2}px
+  `;
+}
+
+// ============================================================================
+// 12. XỬ LÝ SỰ KIỆN
+// ============================================================================
+// Các event listener cho nút bấm
+
+
 accelerateButton.addEventListener("mousedown", function () {
   startGame();
   accelerate = true;
@@ -1083,79 +1113,82 @@ accelerateButton.addEventListener("mouseup", function () {
 decelerateButton.addEventListener("mouseup", function () {
   decelerate = false;
 });
+
 document.getElementById('toggleHelpers').addEventListener('click', () => {
-    debugCamera.toggleHelpers();
+  debugCamera.toggleHelpers();
 });
 window.addEventListener("keydown", function (event) {
-  if (event.key === "ArrowUp") {
-    startGame();
-    accelerate = true;
-    return;
-  }
-  if (event.key === "ArrowDown") {
-    decelerate = true;
-    return;
-  }
-  if (event.key === "R" || event.key === "r") {
-    reset();
-    return;
-  }
+if (event.key === "ArrowUp") {
+  startGame();
+  accelerate = true;
+  return;
+}
+if (event.key === "ArrowDown") {
+  decelerate = true;
+  return;
+}
+if (event.key === "R" || event.key === "r") {
+  reset();
+  return;
+}
 });
 
 window.addEventListener("keyup", function (event) {
-  if (event.key === "ArrowUp") {
-    accelerate = false;
-    return;
-  }
-  if (event.key === "ArrowDown") {
-    decelerate = false;
-    return;
-  }
+if (event.key === "ArrowUp") {
+  accelerate = false;
+  return;
+}
+if (event.key === "ArrowDown") {
+  decelerate = false;
+  return;
+}
 });
 const switchCameraButton = document.getElementById('switchCamera');
 switchCameraButton.addEventListener('click', () => {
-    currentCamera = currentCamera === topDownCamera ? driverCamera : topDownCamera;
-    
-    // Cập nhật tỉ lệ khung hình nếu cần
-    if (currentCamera === driverCamera) {
-        driverCamera.aspect = window.innerWidth / window.innerHeight;
-        driverCamera.updateProjectionMatrix();
-    }
+  currentCamera = currentCamera === topDownCamera ? driverCamera : topDownCamera;
+  
+  // Cập nhật tỉ lệ khung hình nếu cần
+  if (currentCamera === driverCamera) {
+      driverCamera.aspect = window.innerWidth / window.innerHeight;
+      driverCamera.updateProjectionMatrix();
+  }
 });
 // Handle window resize
 window.addEventListener("resize", () => {
-  console.log("resize", window.innerWidth, window.innerHeight);
-  const newAspectRatio = window.innerWidth / window.innerHeight;
+console.log("resize", window.innerWidth, window.innerHeight);
+const newAspectRatio = window.innerWidth / window.innerHeight;
 
-  // Cập nhật top-down camera (OrthographicCamera)
-  if (topDownCamera) {
-    const adjustedCameraHeight = cameraWidth / newAspectRatio;
-    topDownCamera.top = adjustedCameraHeight / 2;
-    topDownCamera.bottom = adjustedCameraHeight / -2;
-    topDownCamera.updateProjectionMatrix();
-  }
+// Cập nhật top-down camera (OrthographicCamera)
+if (topDownCamera) {
+  const adjustedCameraHeight = cameraWidth / newAspectRatio;
+  topDownCamera.top = adjustedCameraHeight / 2;
+  topDownCamera.bottom = adjustedCameraHeight / -2;
+  topDownCamera.updateProjectionMatrix();
+}
 
-  // Cập nhật driver camera (PerspectiveCamera) 
-  if (driverCamera) {
-    driverCamera.aspect = newAspectRatio;
-    driverCamera.updateProjectionMatrix();
-  }
+// Cập nhật driver camera (PerspectiveCamera) 
+if (driverCamera) {
+  driverCamera.aspect = newAspectRatio;
+  driverCamera.updateProjectionMatrix();
+}
 
-  // Cập nhật renderer size
-  if (renderer) {
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  }
+// Cập nhật renderer size
+if (renderer) {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
 
-  // Cập nhật vị trí score element
-  if (scoreElement) {
-    positionScoreElement();
-  }
+// Cập nhật vị trí score element
+if (scoreElement) {
+  positionScoreElement();
+}
 
-  // Render lại scene với camera hiện tại
-  if (scene && currentCamera) {
-    renderer.render(scene, currentCamera);
-  }
+// Render lại scene với camera hiện tại
+if (scene && currentCamera) {
+  renderer.render(scene, currentCamera);
+}
 });
 
-// Start the game
+///////
+
+// Khởi động game
 reset();
